@@ -1,7 +1,8 @@
 from sqlalchemy import create_engine, Column, ForeignKey, Integer, String
 from sqlalchemy.orm import sessionmaker, relationship, deferred
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.sql import func
+from sqlalchemy.sql import func, label
+from time import sleep
 
 Base = declarative_base()
 
@@ -27,8 +28,8 @@ class Child(Base):
         self.parent_id = pid
 
 if __name__ == '__main__':
-    clean = False
-    # print('::SQLAlchemy Demo meetup python BCN::')
+    clean = True
+    print('::SQLAlchemy Demo meetup python BCN::')
     engine = create_engine('sqlite:///demo.db', echo=False)
     session = sessionmaker(bind=engine)()
     Base.metadata.create_all(engine, checkfirst=True)
@@ -38,17 +39,22 @@ if __name__ == '__main__':
         for table in reversed(Base.metadata.sorted_tables):
             con.execute(table.delete())
         transaction.commit()
-
-    p = Parent('prueba')
-    session.add(p)
-    session.commit()
-    q = session.query(Parent).all()
-    for x in q:
-        c = Child("child", x.id)
-        session.add(c)
-    session.commit()
-    session.refresh(p)
-    for x in q:
-        print("{}+\n      |".format(x.name))
-        for i in x.children:
-            print("      +-->{}".format(i.name))
+    while True:
+        p = Parent('Parent')
+        session.add(p)
+        session.commit()
+        q = session.query(Parent).all()
+        for x in q:
+            c = Child("Child", x.id)
+            session.add(c)
+        session.commit()
+        session.refresh(p)
+        for x in q:
+            print("[{}] {}+\n          |".format(x.id, x.name))
+            for i in x.children:
+                print("          +-->[{}]{}".format(i.id, i.name))
+        q = session.query(Parent.id, label('total', func.count(Child.id))).outerjoin(Child).group_by(Parent).all()
+        print("::Total children by parent::")
+        for x in q:
+            print("Parent id[{}] has {} Children".format(x.id, x.total))
+        sleep(30)
